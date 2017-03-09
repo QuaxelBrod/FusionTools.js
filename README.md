@@ -1,6 +1,10 @@
 # FusionTools.js
 Some tools written in typescript
 
+### Global installs
+* typescript
+* tslint
+
 ### depackVolume.ts
 Tries to depack your 'Volume' to different Volumes
 

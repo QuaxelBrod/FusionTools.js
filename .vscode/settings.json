@@ -1,0 +1,6 @@
+// Platzieren Sie Ihre Einstellungen in dieser Datei, um Standard- und Benutzereinstellungen zu überschreiben.
+{
+    "tslint.enable": true,
+    "tslint.autoFixOnSave": true,
+    "tslint.run": "onType"
+}
