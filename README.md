@@ -11,9 +11,9 @@ Tries to depack your 'Volume' to different Volumes
 Usage:
 
 ``node depackVolume --src [path2src] --dest [outputDir] [--count 0000]``
---src: Source directory (do you have a backup)
+--src / -s: Source directory (do you have a backup)
 
---dest: Dirctory where the output goes to. If some libs are there theywil be overwritten
+--dest / -d: Dirctory where the output goes to. If some libs are there theywil be overwritten
 
---count: optional: Prefix output libs with numbers starting with this one
+--count -c [n]: optional: Prefix output libs with numbers. starting with [optional] n
  
