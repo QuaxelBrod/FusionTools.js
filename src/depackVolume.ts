@@ -28,9 +28,30 @@ let argv = yargs
     .epilog("see https://github.com/QuaxelBrod/FusionTools.js")
     .argv;
 
+class ProcessJob {
+    src: string;
+    dest: string;
+    fu: (a , b, cb: (err) => void) => void;
+    cb(err): void {
+        if (err) {
+            console.error("failed to move " + this.src);
+            console.error(err);
+        }
+        else {
+            log("%s processed", this.src);
+        }
+        this.finished();
+    };
+    finished: () => void;
+    start(): void {
+        this.fu(this.src, this.dest, this.cb.bind(this));
+    }
+}
 
 let log = console.log;
 let logd = console.dir;
+
+let jobs: Array<ProcessJob> = new Array<ProcessJob>();
 
 depackDir(argv.s, argv.d, false, argv.c ? true : false, argv.c);
 
@@ -38,6 +59,7 @@ depackDir(argv.s, argv.d, false, argv.c ? true : false, argv.c);
  * processes Volumedir and depack all libs to dest dir
  * @param {string} srcd Source directory points to Volume
  * @param {string} desd Destination library root dir. Existing libs will overwritten
+ * @param {boolean} copy If true the source will be copied. If false the source will be moved
  * @param {boolean} count ShouldLibrarys prefixedwith numbers
  * @param {number} countstart start numbering with
  */
@@ -80,67 +102,74 @@ function depackDir(srcd: string, desd: string, copy: boolean = true, count: bool
         else if (!fs.existsSync(desd + "/" + libname + "/Volume")) {
             fs.mkdirSync(desd + "/" + libname + "/Volume");
         }
-        fs.mkdirSync(desd + "/" + libname + "/Volume/Programs/");
-        fs.mkdirSync(desd + "/" + libname + "/Volume/Programs/" + programDirs[i]);
-        let fu = fs.move;
-        if (copy) {
-            fu = fs.copy;
-        }
-        // process dirs
-        fu(srcd + "/Programs/" + programDirs[i], desd + "/" + libname + "/Volume/Programs/" + programDirs[i], err => {
-            if (err) {
-                console.error("failed to move /Programs/" + programDirs[i]);
-                console.error(err);
-            }
-            log("Programs/%s processed", programDirs[i]);
-        });
-        if (fs.existsSync(srcd + "/Mixes/" + programDirs[i])) {
-            fs.mkdirSync(desd + "/" + libname + "/Volume/Mixes/");
-            fs.mkdirSync(desd + "/" + libname + "/Volume/Mixes/" + programDirs[i]);
-            fu(srcd + "/Mixes/" + programDirs[i], desd + "/" + libname + "/Volume/Mixes/" + programDirs[i], err => {
-                if (err) {
-                    console.error("failed to move /Mixes/" + programDirs[i]);
-                    console.error(err);
-                }
-            });
-            log("Mixes/%s processed", programDirs[i]);
-        }
-        if (fs.existsSync(srcd + "/Multisamples/" + programDirs[i])) {
-            fs.mkdirSync(desd + "/" + libname + "/Volume/Multisamples/");
-            fs.mkdirSync(desd + "/" + libname + "/Volume/Multisamples/" + programDirs[i]);
-            fu(srcd + "/Multisamples/" + programDirs[i], desd + "/" + libname + "/Volume/Multisamples/" + programDirs[i], err => {
-                if (err) {
-                    console.error("failed to move /Multisamples/" + programDirs[i]);
-                    console.error(err);
-                }
-            });
-            log("Multisamples/%s processed", programDirs[i]);
-        }
-        if (fs.existsSync(srcd + "/Patterns/" + programDirs[i])) {
-            fs.mkdirSync(desd + "/" + libname + "/Volume/Patterns/");
-            fs.mkdirSync(desd + "/" + libname + "/Volume/Patterns/" + programDirs[i]);
-            fu(srcd + "/Patterns/" + programDirs[i], desd + "/" + libname + "/Volume/Patterns/" + programDirs[i], err => {
-                if (err) {
-                    console.error("failed to move /Patterns/" + programDirs[i]);
-                    console.error(err);
-                }
-            });
-            log("Patterns/%s processed", programDirs[i]);
-        }
-        if (fs.existsSync(srcd + "/Samples/" + programDirs[i])) {
-            fs.mkdirSync(desd + "/" + libname + "/Volume/Samples/");
-            fs.mkdirSync(desd + "/" + libname + "/Volume/Samples/" + programDirs[i]);
-            fu(srcd + "/Samples/" + programDirs[i], desd + "/" + libname + "/Volume/Samples/" + programDirs[i], err => {
-                if (err) {
-                    console.error("failed to move /Samples/" + programDirs[i]);
-                    console.error(err);
-                }
-            });
-            log("Samples/%s processed", programDirs[i]);
-        }
+
+
+        processLib(programDirs[i], srcd, desd + "/" + libname, copy);
     }
+    start();
 };
 
+function processLib(libname: string, srcd: string, destd: string, copy: boolean) {
+    let fu = fs.move;
+    if (copy) {
+        fu = fs.copy;
+    }
+    // process dirs
+    if (!fs.existsSync(destd + "/Volume/Programs/"))
+        fs.mkdirSync(destd + "/Volume/Programs/");
+    if (!fs.existsSync(destd + "/Volume/Programs/" + libname))
+        fs.mkdirSync(destd + "/Volume/Programs/" + libname);
+    queueJob(srcd + "/Programs/" + libname, destd + "/Volume/Programs/" + libname, fu);
+    if (fs.existsSync(srcd + "/Mixes/" + libname)) {
+        if (!fs.existsSync(destd + "/Volume/Mixes/"))
+            fs.mkdirSync(destd + "/Volume/Mixes/");
+        if (!fs.existsSync(destd + "/Volume/Mixes/" + libname))
+            fs.mkdirSync(destd + "/Volume/Mixes/" + libname);
+        queueJob(srcd + "/Mixes/" + libname, destd + "/Volume/Mixes/" + libname, fu);
+    }
+    if (fs.existsSync(srcd + "/Multisamples/" + libname)) {
+        if (!fs.existsSync(destd + "/Volume/Multisamples/"))
+            fs.mkdirSync(destd + "/Volume/Multisamples/");
+        if (!fs.existsSync(destd + "/Volume/Multisamples/" + libname))
+            fs.mkdirSync(destd + "/Volume/Multisamples/" + libname);
+        queueJob(srcd + "/Multisamples/" + libname, destd + "/Volume/Multisamples/" + libname, fu);
+    }
+    if (fs.existsSync(srcd + "/Patterns/" + libname)) {
+        if (!fs.existsSync(destd + "/Volume/Patterns/"))
+            fs.mkdirSync(destd + "/Volume/Patterns/");
+        if (!fs.existsSync(destd + "/Volume/Patterns/" + libname))
+            fs.mkdirSync(destd + "/Volume/Patterns/" + libname);
+        queueJob(srcd + "/Patterns/" + libname, destd  + "/Volume/Patterns/" + libname, fu);
+    }
+    if (fs.existsSync(srcd + "/Samples/" + libname)) {
+        if (!fs.existsSync(destd + "/Volume/Samples/"))
+            fs.mkdirSync(destd + "/Volume/Samples/");
+        if (!fs.existsSync(destd + "/Volume/Samples/" + libname))
+            fs.mkdirSync(destd + "/Volume/Samples/" + libname);
+        queueJob(srcd + "/Samples/" + libname, destd + "/Volume/Samples/" + libname, fu);
+    }
+}
+
+function queueJob(src: string, dest: string, fu: (a , b, cb: (err) => void) => void): void {
+    let job: ProcessJob = new ProcessJob();
+    job.src = src;
+    job.dest = dest;
+    job.fu = fu;
+    jobs.push(job);
+}
+
+function start() {
+    let job: ProcessJob = jobs.shift();
+    if (job) {
+        job.finished = start;
+        process.nextTick(job.start.bind(job));
+    }
+    else {
+        log("++++++++++++++++");
+        log("**  FINISHED  **");
+        log("++++++++++++++++");
+    }
+}
 
 /**
  * adds leading 0 to number
